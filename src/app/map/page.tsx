@@ -19,8 +19,12 @@ export default async function MapPage() {
 
   const { data: sheet } = await supabase.rpc("get_character_sheet");
 
+  const equippedThemeSlug = sheet?.inventory?.find(
+    (i: { kind: string; equipped: boolean }) => i.kind === "theme" && i.equipped
+  )?.slug;
+
   return (
-    <GameShell>
+    <GameShell equippedThemeSlug={equippedThemeSlug}>
       <SheetProvider
         initialSheet={{
           profile: sheet?.profile ?? null,
@@ -28,6 +32,7 @@ export default async function MapPage() {
           inventory: sheet?.inventory ?? [],
           gear: sheet?.gear ?? {},
           zones: sheet?.zones ?? [],
+          achievements: sheet?.achievements ?? [],
         }}
       >
         <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:py-10">

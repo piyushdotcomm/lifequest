@@ -48,11 +48,13 @@ const RARITY_BORDER: Record<string, string> = {
 function ShopCard({
   item,
   owned,
+  equipped,
   gold,
   onDone,
 }: {
   item: ShopItem;
   owned: boolean;
+  equipped: boolean;
   gold: number;
   onDone: () => void;
 }) {
@@ -60,7 +62,10 @@ function ShopCard({
   const pushToast = useGameStore((s) => s.pushToast);
   const [busy, setBusy] = useState(false);
   const [justBought, setJustBought] = useState(false);
+  const [isEquipped, setIsEquipped] = useState(equipped);
   const canAfford = gold >= item.price;
+  const equipable =
+    owned && (item.kind === "frame" || item.kind === "title" || item.kind === "theme");
 
   async function buy() {
     if (busy || owned) return;
@@ -80,6 +85,33 @@ function ShopCard({
     }
   }
 
+  async function toggleEquip() {
+    if (busy || !equipable) return;
+    setBusy(true);
+    const want = !isEquipped;
+    try {
+      const { error } = await supabase.rpc("equip_item", {
+        item_id: item.id,
+        want_equipped: want,
+      });
+      if (error) throw error;
+      playPurchaseChime();
+      setIsEquipped(want);
+      pushToast(
+        "success",
+        want
+          ? `${item.name} equipped.`
+          : `${item.name} unequipped.`
+      );
+      onDone();
+    } catch (err) {
+      playErrorBuzz();
+      pushToast("danger", err instanceof Error ? err.message : "Could not change equipment.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <motion.li
       initial={false}
@@ -91,7 +123,15 @@ function ShopCard({
         </span>
         {owned && (
           <span className="inline-flex items-center gap-1 text-rarity-uncommon text-xs font-bold">
-            <SealCheck size={14} weight="fill" aria-hidden="true" /> Owned
+            {isEquipped ? (
+              <>
+                <SealCheck size={14} weight="fill" aria-hidden="true" /> Equipped
+              </>
+            ) : (
+              <>
+                <SealCheck size={14} weight="fill" aria-hidden="true" /> Owned
+              </>
+            )}
           </span>
         )}
       </div>
@@ -110,6 +150,21 @@ function ShopCard({
         </span>
         {justBought ? (
           <span className="pixel-text text-[9px] text-rarity-uncommon">Sold!</span>
+        ) : equipable ? (
+          <button
+            onClick={toggleEquip}
+            disabled={busy}
+            className={`btn-jrpg px-3.5 py-1.5 text-[9px] ${
+              isEquipped ? "btn-ghost" : "btn-primary"
+            }`}
+            aria-label={
+              isEquipped
+                ? `Unequip ${item.name}`
+                : `Equip ${item.name}`
+            }
+          >
+            {busy ? "…" : isEquipped ? "Unequip" : "Equip"}
+          </button>
         ) : (
           <button
             onClick={buy}
@@ -146,6 +201,10 @@ export function ShopView({
 
   const ownedIds = useMemo(
     () => new Set(myInventory.map((i) => i.id)),
+    [myInventory]
+  );
+  const equippedIds = useMemo(
+    () => new Set(myInventory.filter((i) => i.equipped).map((i) => i.id)),
     [myInventory]
   );
 
@@ -234,6 +293,7 @@ export function ShopView({
                         key={item.id}
                         item={item}
                         owned={ownedIds.has(item.id)}
+                        equipped={equippedIds.has(item.id)}
                         gold={myGold}
                         onDone={refresh}
                       />

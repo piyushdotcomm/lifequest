@@ -24,7 +24,24 @@ insert into public.item_catalog (slug, name, description, kind, rarity, price, g
   ('theme-verdant', 'Verdant Theme', 'Deep forest tones for steady growth.', 'theme', 'epic', 1500, 'palette', true),
 
   -- ——— consumables ———
-  ('consumable-streak-freeze', 'Streak Freeze', 'Protects your streak for one missed day.', 'consumable', 'uncommon', 120, 'snowflake', true)
+  ('consumable-streak-freeze', 'Streak Freeze', 'Protects your streak for one missed day.', 'consumable', 'uncommon', 120, 'snowflake', true),
+
+  -- ——— achievement badges (auto-granted by the guild) ———
+  ('badge-first-blood', 'First Blood', 'Your first quest entered in the ledger.', 'badge', 'common', 0, 'seal', false),
+  ('badge-ten-deeds', 'Ten Deeds', 'Ten quests completed.', 'badge', 'common', 0, 'seal', false),
+  ('badge-fifty-deeds', 'Fifty Deeds', 'Fifty quests completed.', 'badge', 'uncommon', 0, 'seal', false),
+  ('badge-hundred-deeds', 'Century of Deeds', 'One hundred quests completed.', 'badge', 'rare', 0, 'trophy', false),
+  ('badge-streak-3', 'Kindling', 'A 3-day streak kept alive.', 'badge', 'common', 0, 'seal', false),
+  ('badge-streak-7', 'Everbloom', 'A 7-day streak kept alive.', 'badge', 'uncommon', 0, 'seal', false),
+  ('badge-streak-30', 'Eternal Flame', 'A 30-day streak kept alive.', 'badge', 'epic', 0, 'trophy', false),
+  ('badge-first-crit', 'Lucky Strike', 'Your first natural 20.', 'badge', 'uncommon', 0, 'seal', false),
+  ('badge-crit-10', 'Fortune\u0027s Friend', 'Ten natural 20s rolled.', 'badge', 'epic', 0, 'trophy', false),
+  ('badge-level-5', 'Journeyman', 'Reached character level 5.', 'badge', 'uncommon', 0, 'trophy', false),
+  ('badge-level-10', 'Veteran', 'Reached character level 10.', 'badge', 'rare', 0, 'trophy', false),
+  ('badge-level-18', 'Ledgerline Summit', 'Reached character level 18.', 'badge', 'legendary', 0, 'trophy', false),
+  ('badge-well-rounded', 'Well-Rounded', 'Every attribute at level 3 or higher.', 'badge', 'rare', 0, 'trophy', false),
+  ('badge-grandmaster', 'Grandmaster', 'Any attribute at level 10 or higher.', 'badge', 'epic', 0, 'trophy', false),
+  ('badge-daily-devotee', 'Devoted', 'Kept a recurring quest alive for 7 straight periods.', 'badge', 'epic', 0, 'trophy', false)
 on conflict (slug) do update
   set name = excluded.name,
       description = excluded.description,
@@ -33,6 +50,31 @@ on conflict (slug) do update
       price = excluded.price,
       glyph = excluded.glyph,
       purchasable = excluded.purchasable;
+
+-- ============ ACHIEVEMENT DEFINITIONS ============
+insert into public.achievement_definitions (id, slug, name, description, rarity, badge_slug, gold_reward) values
+  (1,  'first-blood',    'First Blood',        'Your first quest entered in the ledger.', 'common',    'badge-first-blood',    0),
+  (2,  'ten-quests',     'Ten Deeds',          'Ten quests completed.',                    'common',    'badge-ten-deeds',     25),
+  (3,  'fifty-quests',   'Fifty Deeds',        'Fifty quests completed.',                  'uncommon',  'badge-fifty-deeds',   100),
+  (4,  'hundred-quests', 'Century of Deeds',   'One hundred quests completed.',            'rare',      'badge-hundred-deeds', 300),
+  (5,  'streak-3',       'Kindling',           'A 3-day streak kept alive.',                'common',    'badge-streak-3',      25),
+  (6,  'streak-7',       'Everbloom',          'A 7-day streak kept alive.',                'uncommon',  'badge-streak-7',      75),
+  (7,  'streak-30',      'Eternal Flame',      'A 30-day streak kept alive.',               'epic',      'badge-streak-30',     500),
+  (8,  'first-crit',     'Lucky Strike',       'Your first natural 20.',                    'uncommon',  'badge-first-crit',    50),
+  (9,  'crit-10',        'Fortune\u0027s Friend', 'Ten natural 20s rolled.',                'epic',      'badge-crit-10',       250),
+  (10, 'level-5',        'Journeyman',         'Reached character level 5.',                'uncommon',  'badge-level-5',       50),
+  (11, 'level-10',       'Veteran',            'Reached character level 10.',               'rare',      'badge-level-10',      150),
+  (12, 'level-18',       'Ledgerline Summit',  'Reached character level 18.',               'legendary', 'badge-level-18',      1000),
+  (13, 'well-rounded',   'Well-Rounded',       'Every attribute at level 3 or higher.',    'rare',      'badge-well-rounded',  200),
+  (14, 'grandmaster',    'Grandmaster',        'Any attribute at level 10 or higher.',      'epic',      'badge-grandmaster',   250),
+  (15, 'daily-devotee',  'Devoted',            'Kept a recurring quest alive for 7 straight periods.', 'epic', 'badge-daily-devotee', 300)
+on conflict (id) do update
+  set slug = excluded.slug,
+      name = excluded.name,
+      description = excluded.description,
+      rarity = excluded.rarity,
+      badge_slug = excluded.badge_slug,
+      gold_reward = excluded.gold_reward;
 
 -- ============ GEAR ARMORY: 6 slots x 3 tiers ============
 -- Slots map to attributes: STR weapon, INT tome, VIT armor, DIS helm, CHA cloak, CRA instrument.

@@ -21,8 +21,12 @@ export default async function ShopPage() {
     supabase.rpc("get_character_sheet"),
   ]);
 
+  const equippedThemeSlug = sheet?.inventory?.find(
+    (i: { kind: string; equipped: boolean }) => i.kind === "theme" && i.equipped
+  )?.slug;
+
   return (
-    <GameShell>
+    <GameShell equippedThemeSlug={equippedThemeSlug}>
       <ShopView
         catalog={catalog ?? []}
         gold={sheet?.profile?.gold ?? 0}

@@ -10,29 +10,48 @@ export function xpNeeded(level: number): number {
   return Math.round(100 * Math.pow(level, 1.5));
 }
 
+/** Map of purchasable frame slugs to plaque ring colors. */
+const FRAME_STYLES: Record<string, { ring: string; label: string }> = {
+  "frame-bronze": { ring: "oklch(62% 0.09 65)", label: "Bronze Frame" },
+  "frame-silver": { ring: "oklch(78% 0.02 250)", label: "Silver Frame" },
+  "frame-gold": { ring: "oklch(72% 0.14 92)", label: "Gold-Leaf Frame" },
+  "frame-rainbow": { ring: "oklch(60% 0.16 330)", label: "Prismatic Frame" },
+};
+
 /** The character sheet header card. */
 export function CharacterCard({
   profile,
   equippedTitle,
+  equippedFrameSlug,
   gear,
   attributes,
   newGear,
 }: {
   profile: Profile;
   equippedTitle?: string;
+  equippedFrameSlug?: string | null;
   gear: GearMap;
   attributes: AttributeRow[];
   newGear?: string | null;
 }) {
   const need = xpNeeded(profile.level);
+  const frame = equippedFrameSlug ? FRAME_STYLES[equippedFrameSlug] : undefined;
 
   return (
     <Window as="article" className="overflow-hidden">
       <WindowTitle>Character</WindowTitle>
       <div className="p-4 sm:p-6">
         <div className="flex items-start gap-4">
-          {/* Paper-doll avatar */}
+          {/* Paper-doll avatar (with equipped frame ring) */}
           <div className="relative shrink-0">
+            {frame && (
+              <span
+                className="absolute -inset-1.5 rounded-[6px] border-[3px]"
+                style={{ borderColor: frame.ring }}
+                title={`${frame.label} — equipped`}
+                aria-hidden="true"
+              />
+            )}
             <PaperDollAvatar
               gear={gear}
               level={profile.level}

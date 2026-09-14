@@ -10,8 +10,9 @@ import { CharacterCard } from "@/components/character-card";
 import { QuestBoard } from "@/components/quest-board";
 import { LevelUpOverlay, XPOrbBurst, CritBanner } from "@/components/celebration";
 import { DailyChest } from "@/components/daily-chest";
+import { AchievementsPanel } from "@/components/achievements-panel";
 import { playLevelUpFanfare, playCritSting } from "@/lib/audio/fanfare";
-import { MapTrifold } from "@phosphor-icons/react";
+import { MapTrifold, BookOpen } from "@phosphor-icons/react";
 
 /**
  * The quest board page composition: character card + attributes + quest list,
@@ -19,12 +20,15 @@ import { MapTrifold } from "@phosphor-icons/react";
  */
 export function QuestBoardView({
   equippedTitle,
+  equippedFrameSlug,
 }: {
   equippedTitle?: string;
+  equippedFrameSlug?: string | null;
 }) {
   const profile = useGameStore((s) => s.profile);
   const attributes = useGameStore((s) => s.attributes);
   const gear = useGameStore((s) => s.gear);
+  const achievements = useGameStore((s) => s.achievements);
   const celebrateLevelUp = useGameStore((s) => s.celebrateLevelUp);
   const lastCompletion = useGameStore((s) => s.lastCompletion);
   const clearCelebration = useGameStore((s) => s.clearCelebration);
@@ -67,6 +71,9 @@ export function QuestBoardView({
             <Link href="/shop" className="btn-jrpg btn-ghost px-4 py-2 text-[10px]">
               Guild Shop
             </Link>
+            <Link href="/chronicle" className="btn-jrpg btn-ghost px-4 py-2 text-[10px]">
+              <BookOpen size={12} weight="duotone" aria-hidden="true" /> Chronicle
+            </Link>
           </nav>
         </div>
 
@@ -77,12 +84,14 @@ export function QuestBoardView({
             <CharacterCard
               profile={profile}
               equippedTitle={equippedTitle}
+              equippedFrameSlug={equippedFrameSlug}
               gear={gear}
               attributes={attributes}
               newGear={lastCompletion?.gear_granted}
             />
             <AttributesPanel attributes={attributes} />
             <DailyChest profile={profile} />
+            <AchievementsPanel achievements={achievements} />
           </div>
 
           {/* right column: quests */}

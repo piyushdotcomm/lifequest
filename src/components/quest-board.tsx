@@ -12,11 +12,12 @@ import {
   Trash,
   ArrowUUpLeft,
   Sword,
+  Repeat,
 } from "@phosphor-icons/react";
-import type { AttributeKey, CompleteTaskResult, DifficultyTier, Task } from "@/lib/game/types";
-import { ATTRIBUTE_META, TIER_META } from "@/lib/game/types";
+import type { AttributeKey, CompleteTaskResult, DifficultyTier, Recurrence, Task } from "@/lib/game/types";
+import { ATTRIBUTE_META, RECURRENCE_META, TIER_META } from "@/lib/game/types";
 import { Chip, Window, WindowTitle } from "@/components/ui";
-import { playVictoryFanfare, playErrorBuzz } from "@/lib/audio/fanfare";
+import { playVictoryFanfare, playErrorBuzz, playAchievementFanfare } from "@/lib/audio/fanfare";
 import { useGameStore } from "@/lib/game/store";
 import { createClient } from "@/lib/supabase/client";
 
@@ -31,8 +32,28 @@ const questSchema = z.object({
     .max(120, "Keep it under 120 characters."),
   tier: z.enum(["trivial", "easy", "medium", "hard", "epic"]),
   attribute: z.enum(["str", "int", "vit", "dis", "cha", "cra"]),
+  recurrence: z.enum(["none", "daily", "weekly"]),
 });
 type QuestForm = z.infer<typeof questSchema>;
+
+const CADENCES = Object.keys(RECURRENCE_META) as Recurrence[];
+
+/** Period-aware "done" for the client (mirrors quest_done_for_period). */
+function isDoneNow(task: Task): boolean {
+  if (task.recurrence === "none") return task.completed;
+  if (!task.completed || !task.completed_at) return false;
+  const completedDay = new Date(task.completed_at).toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  if (task.recurrence === "daily") return completedDay === today;
+  // weekly: ISO week comparison via the Thursday trick
+  const weekOf = (d: Date) => {
+    const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const day = t.getUTCDay() || 7; // Mon=1..Sun=7
+    t.setUTCDate(t.getUTCDate() + 4 - day); // Thursday of the ISO week
+    return t.toISOString().slice(0, 10);
+  };
+  return weekOf(new Date(completedDay)) === weekOf(new Date(today));
+}
 
 /** Quest row. */
 function QuestRow({
@@ -63,7 +84,12 @@ function QuestRow({
     formState: { errors },
   } = useForm<QuestForm>({
     resolver: zodResolver(questSchema),
-    defaultValues: { title: task.title, tier: task.tier, attribute: task.attribute },
+    defaultValues: {
+      title: task.title,
+      tier: task.tier,
+      attribute: task.attribute,
+      recurrence: task.recurrence ?? "none",
+    },
   });
 
   async function complete(event: React.MouseEvent<HTMLButtonElement>) {
@@ -75,7 +101,23 @@ function QuestRow({
     try {
       const { data, error } = await supabase.rpc("complete_task", { task_id: task.id });
       if (error) throw error;
-      if (data) applyCompletion(data as CompleteTaskResult);
+      if (data) {
+        const res = data as CompleteTaskResult;
+        applyCompletion(res);
+        if (res.reopened_no_reward) {
+          pushToast(
+            "info",
+            "Deed re-entered — this quest's rewards were already earned."
+          );
+        }
+        for (const a of res.achievements ?? []) {
+          playAchievementFanfare();
+          pushToast(
+            "success",
+            `Achievement unlocked: ${a.name}${a.gold_reward ? ` (+${a.gold_reward}g)` : ""}`
+          );
+        }
+      }
       onCompleted(task, origin);
     } catch (err) {
       playErrorBuzz();
@@ -111,7 +153,12 @@ function QuestRow({
           t.id === task.id ? { ...t, completed: false, completed_at: null } : t
         )
       );
-      pushToast("info", "Quest reopened. Rewards already earned stay earned.");
+      pushToast(
+        "info",
+        task.recurrence === "none" && task.rewards_paid
+          ? "One-shot quests already in the ledger cannot be reopened."
+          : "Quest reopened. Rewards already earned stay earned."
+      );
     } catch (err) {
       pushToast("danger", err instanceof Error ? err.message : "Could not reopen quest.");
     } finally {
@@ -129,6 +176,7 @@ function QuestRow({
           title: values.title,
           tier: values.tier,
           attribute: values.attribute,
+          recurrence: values.recurrence,
           updated_at: new Date().toISOString(),
         })
         .eq("id", task.id);
@@ -151,6 +199,7 @@ function QuestRow({
 
   const tierMeta = TIER_META[task.tier];
   const attrMeta = ATTRIBUTE_META[task.attribute];
+  const done = isDoneNow(task);
 
   if (editing) {
     return (
@@ -173,7 +222,7 @@ function QuestRow({
               </p>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label htmlFor={`edit-tier-${task.id}`} className="mb-1 block text-xs font-semibold text-ink-dim">
                 Difficulty
@@ -194,6 +243,18 @@ function QuestRow({
                 {ATTRS.map((a) => (
                   <option key={a} value={a}>
                     {ATTRIBUTE_META[a].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor={`edit-rec-${task.id}`} className="mb-1 block text-xs font-semibold text-ink-dim">
+                Cadence
+              </label>
+              <select id={`edit-rec-${task.id}`} className="input-jrpg" {...register("recurrence")}>
+                {CADENCES.map((r) => (
+                  <option key={r} value={r}>
+                    {RECURRENCE_META[r].label}
                   </option>
                 ))}
               </select>
@@ -223,24 +284,34 @@ function QuestRow({
     <motion.li
       layout
       initial={reduce ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: task.completed ? 0.55 : 1, y: 0 }}
+      animate={{ opacity: done ? 0.55 : 1, y: 0 }}
       exit={reduce ? { opacity: 0 } : { opacity: 0, x: 24 }}
       transition={{ type: "spring", stiffness: 300, damping: 26 }}
       className={`group flex items-center gap-3 px-4 py-3 sm:px-5 ${
-        task.completed ? "opacity-60" : ""
+        done ? "opacity-60" : ""
       }`}
     >
       {/* complete / reopen button */}
-      {task.completed ? (
-        <button
-          onClick={reopen}
-          disabled={busy}
-          className="btn-jrpg btn-ghost !rounded-[6px] h-9 w-9 shrink-0 !border-window-border p-0"
-          aria-label={`Reopen quest: ${task.title}`}
-          title="Reopen (rewards stay earned)"
-        >
-          <ArrowUUpLeft size={15} weight="bold" aria-hidden="true" />
-        </button>
+      {done ? (
+        task.recurrence === "none" && task.rewards_paid ? (
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] border-2 border-window-border bg-window-deep/40 text-rarity-uncommon"
+            title="Sealed in the ledger — rewards already earned"
+            aria-label="Quest sealed in the ledger"
+          >
+            <Sword size={15} weight="fill" aria-hidden="true" />
+          </span>
+        ) : (
+          <button
+            onClick={reopen}
+            disabled={busy}
+            className="btn-jrpg btn-ghost !rounded-[6px] h-9 w-9 shrink-0 !border-window-border p-0"
+            aria-label={`Reopen quest: ${task.title}`}
+            title="Reopen (rewards stay earned)"
+          >
+            <ArrowUUpLeft size={15} weight="bold" aria-hidden="true" />
+          </button>
+        )
       ) : (
         <motion.button
           whileTap={reduce ? undefined : { scale: 0.85 }}
@@ -257,7 +328,7 @@ function QuestRow({
       <div className="min-w-0 flex-1">
         <p
           className={`truncate text-sm font-semibold ${
-            task.completed ? "text-ink-faint line-through" : "text-ink"
+            done ? "text-ink-faint line-through" : "text-ink"
           }`}
         >
           {task.title}
@@ -269,12 +340,25 @@ function QuestRow({
           <Chip colorClass={`text-[${attrMeta.colorVar}]`}>
             {attrMeta.label}
           </Chip>
+          {task.recurrence && task.recurrence !== "none" && (
+            <Chip
+              colorClass={
+                task.recurrence === "daily" ? "text-rarity-rare" : "text-rarity-uncommon"
+              }
+            >
+              <Repeat size={10} weight="bold" aria-hidden="true" />
+              {RECURRENCE_META[task.recurrence].label}
+              {(task.task_streak ?? 0) > 1 && (
+                <span className="text-ink-faint">· {task.task_streak}x</span>
+              )}
+            </Chip>
+          )}
         </div>
       </div>
 
       {/* actions */}
       <div className="flex shrink-0 items-center gap-1.5 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-        {!task.completed && (
+        {!done && (
           <button
             onClick={onStartEdit}
             disabled={busy}
@@ -318,11 +402,11 @@ export function QuestBoard({ onCompleted }: { onCompleted: (task: Task, origin: 
     formState: { errors },
   } = useForm<QuestForm>({
     resolver: zodResolver(questSchema),
-    defaultValues: { tier: "medium", attribute: "dis" },
+    defaultValues: { tier: "medium", attribute: "dis", recurrence: "none" },
   });
 
-  const open = tasks.filter((t) => !t.completed);
-  const done = tasks.filter((t) => t.completed);
+  const open = tasks.filter((t) => !isDoneNow(t));
+  const done = tasks.filter((t) => isDoneNow(t));
 
   const addQuest = handleSubmit(async (values) => {
     if (busy) return;
@@ -341,13 +425,14 @@ export function QuestBoard({ onCompleted }: { onCompleted: (task: Task, origin: 
           title: values.title,
           tier: values.tier,
           attribute: values.attribute,
+          recurrence: values.recurrence,
         })
         .select()
         .single();
       if (error) throw error;
 
       setTasks([created, ...tasks]);
-      reset({ title: "", tier: values.tier, attribute: values.attribute });
+      reset({ title: "", tier: values.tier, attribute: values.attribute, recurrence: values.recurrence });
       setShowForm(false);
       pushToast("success", "Quest posted to the board.");
     } catch (err) {
@@ -418,7 +503,7 @@ export function QuestBoard({ onCompleted }: { onCompleted: (task: Task, origin: 
                   </p>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <label htmlFor="quest-tier" className="mb-1 block text-xs font-semibold text-ink-dim">
                     Difficulty (sets reward)
@@ -439,6 +524,18 @@ export function QuestBoard({ onCompleted }: { onCompleted: (task: Task, origin: 
                     {ATTRS.map((a) => (
                       <option key={a} value={a}>
                         {ATTRIBUTE_META[a].label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="quest-rec" className="mb-1 block text-xs font-semibold text-ink-dim">
+                    Cadence
+                  </label>
+                  <select id="quest-rec" className="input-jrpg" {...register("recurrence")}>
+                    {CADENCES.map((r) => (
+                      <option key={r} value={r}>
+                        {RECURRENCE_META[r].label}
                       </option>
                     ))}
                   </select>
@@ -486,7 +583,17 @@ export function QuestBoard({ onCompleted }: { onCompleted: (task: Task, origin: 
                 key={task.id}
                 task={task}
                 onCompleted={(t, origin) => {
-                  setTasks(tasks.map((x) => (x.id === t.id ? { ...x, completed: true } : x)));
+                  setTasks(
+                    tasks.map((x) =>
+                      x.id === t.id
+                        ? {
+                            ...x,
+                            completed: true,
+                            completed_at: new Date().toISOString(),
+                          }
+                        : x
+                    )
+                  );
                   playVictoryFanfare();
                   onCompleted(t, origin);
                 }}
@@ -500,7 +607,7 @@ export function QuestBoard({ onCompleted }: { onCompleted: (task: Task, origin: 
           {done.length > 0 && open.length > 0 && (
             <li aria-hidden="true" className="px-4 pt-3 pb-1">
               <p className="text-[10px] font-bold uppercase tracking-widest text-ink-faint">
-                Cleared today
+                Cleared this period
               </p>
             </li>
           )}

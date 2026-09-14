@@ -10,6 +10,7 @@ import type {
   GearMap,
   Zone,
 } from "@/lib/game/types";
+import type { UnlockedAchievement } from "@/components/achievements-panel";
 
 // ——— Types ———
 
@@ -28,6 +29,7 @@ interface GameStore {
   inventory: InventoryItem[];
   gear: GearMap;
   zones: Zone[];
+  achievements: UnlockedAchievement[];
   tasks: Task[];
   tasksLoading: boolean;
   sheetLoading: boolean;
@@ -44,6 +46,7 @@ interface GameStore {
     inventory: InventoryItem[];
     gear?: GearMap;
     zones?: Zone[];
+    achievements?: UnlockedAchievement[];
   }) => void;
   setTasks: (tasks: Task[]) => void;
   setTasksLoading: (loading: boolean) => void;
@@ -65,6 +68,7 @@ export const useGameStore = create<GameStore>((set) => ({
   inventory: [],
   gear: {},
   zones: [],
+  achievements: [],
   tasks: [],
   tasksLoading: true,
   sheetLoading: true,
@@ -73,13 +77,14 @@ export const useGameStore = create<GameStore>((set) => ({
   toasts: [],
   celebrateLevelUp: null,
 
-  setSheet: ({ profile, attributes, inventory, gear, zones }) =>
+  setSheet: ({ profile, attributes, inventory, gear, zones, achievements }) =>
     set({
       profile,
       attributes,
       inventory,
       gear: gear ?? {},
       zones: zones ?? [],
+      achievements: achievements ?? [],
       sheetLoading: false,
     }),
 

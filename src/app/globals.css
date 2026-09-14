@@ -66,6 +66,45 @@ html {
   color-scheme: light;
 }
 
+/* ————— purchasable board themes —————
+ * Equipped via the guild shop. Each theme overrides the parchment surfaces,
+ * keeping ink contrast readable. gold (wax) stays the accent everywhere.
+ */
+html[data-theme="ember"] {
+  --color-page: oklch(87% 0.03 70);
+  --color-field: oklch(87% 0.03 70);
+  --color-field-far: oklch(82% 0.04 65);
+  --color-parchment: oklch(80% 0.05 72);
+  --color-parchment-deep: oklch(72% 0.06 68);
+  --color-parchment-far: oklch(66% 0.06 65);
+  --color-window: oklch(80% 0.05 72);
+  --color-window-deep: oklch(72% 0.06 68);
+  --color-window-raised: oklch(84% 0.04 70);
+  --color-gold: oklch(47% 0.15 42);
+  --color-gold-bright: oklch(57% 0.15 45);
+  --color-gold-deep: oklch(36% 0.11 40);
+}
+html[data-theme="verdant"] {
+  --color-page: oklch(89% 0.035 145);
+  --color-field: oklch(89% 0.035 145);
+  --color-field-far: oklch(84% 0.04 140);
+  --color-parchment: oklch(82% 0.05 140);
+  --color-parchment-deep: oklch(73% 0.06 145);
+  --color-parchment-far: oklch(66% 0.06 140);
+  --color-window: oklch(82% 0.05 140);
+  --color-window-deep: oklch(73% 0.06 145);
+  --color-window-raised: oklch(86% 0.04 138);
+  --color-gold: oklch(42% 0.10 155);
+  --color-gold-bright: oklch(52% 0.11 155);
+  --color-gold-deep: oklch(32% 0.08 155);
+}
+
+/* theme switch: surfaces cross-fade gently */
+html[data-theme],
+html[data-theme] body {
+  transition: background-color 400ms ease;
+}
+
 body {
   background: var(--color-page);
   color: var(--color-ink);

@@ -145,3 +145,20 @@ export function playRouteChirp() {
   ]);
 }
 
+/** Achievement unlock: solemn three-note herald + shimmer. */
+export function playAchievementFanfare() {
+  playNotes(
+    [
+      // herald
+      { freq: 392, start: 0, dur: 0.16, type: "triangle", gain: 0.18 },
+      { freq: 523.25, start: 0.14, dur: 0.16, type: "triangle", gain: 0.18 },
+      { freq: 659.25, start: 0.28, dur: 0.3, type: "triangle", gain: 0.2 },
+      // shimmer
+      { freq: 1318.5, start: 0.34, dur: 0.2, type: "square", gain: 0.08 },
+      { freq: 1568, start: 0.42, dur: 0.24, type: "square", gain: 0.08 },
+      { freq: 2093, start: 0.5, dur: 0.3, type: "triangle", gain: 0.1 },
+    ],
+    0.16
+  );
+}
+

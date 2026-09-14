@@ -8,7 +8,7 @@ import { RARITY_CLASS, type Rarity } from "@/lib/game/types";
 import { Window, WindowTitle } from "@/components/ui";
 import { useGameStore } from "@/lib/game/store";
 import { createClient } from "@/lib/supabase/client";
-import { playChestSound } from "@/lib/audio/fanfare";
+import { playChestSound, playAchievementFanfare } from "@/lib/audio/fanfare";
 
 /**
  * The Daily Adventurer's Chest — one claim per UTC day.
@@ -43,6 +43,13 @@ export function DailyChest({ profile }: { profile: Profile }) {
         setResult(res);
         playChestSound();
         setProfile(res.profile);
+        for (const a of res.achievements ?? []) {
+          playAchievementFanfare();
+          pushToast(
+            "success",
+            `Achievement unlocked: ${a.name}${a.gold_reward ? ` (+${a.gold_reward}g)` : ""}`
+          );
+        }
       }
     } catch (err) {
       pushToast("danger", err instanceof Error ? err.message : "The chest would not open.");

@@ -9,6 +9,7 @@ import type {
   Profile,
   Zone,
 } from "@/lib/game/types";
+import type { UnlockedAchievement } from "@/components/achievements-panel";
 
 /** Hydrates the zustand store from the server-loaded sheet, then loads tasks. */
 export function SheetProvider({
@@ -21,6 +22,7 @@ export function SheetProvider({
     inventory: InventoryItem[];
     gear?: GearMap;
     zones?: Zone[];
+    achievements?: UnlockedAchievement[];
   };
   children: React.ReactNode;
 }) {
